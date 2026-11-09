@@ -1,0 +1,268 @@
+{
+  "name": "Uptime Monitor - RealWorld Demo",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "every5",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { t0: Date.now() } }];"
+      },
+      "id": "stamp-start",
+      "name": "Stamp Start",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://demo.realworld.io",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "ping",
+      "name": "Ping App",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst t0 = $('Stamp Start').first().json.t0;\nconst ms = Date.now() - t0;\nconst status = $json.statusCode ?? 0;\nconst ok = status === 200;\nsd.checks = (sd.checks || 0) + 1;\nif (!ok) sd.failures = (sd.failures || 0) + 1;\nsd.totalMs = (sd.totalMs || 0) + ms;\nsd.maxMs = Math.max(sd.maxMs || 0, ms);\nreturn [{ json: {\n  status, ok, ms,\n  error: $json.error?.message || null,\n  checkedAt: new Date().toISOString()\n}}];"
+      },
+      "id": "record-result",
+      "name": "Record Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ok-check",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "ifok",
+      "name": "Is Status 200?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=🔴 **App DOWN** - status {{ $json.status }} after {{ $json.ms }} ms at {{ $json.checkedAt }}. {{ $json.error ? 'Error: ' + $json.error : '' }}",
+        "options": {}
+      },
+      "id": "send-down-alert",
+      "name": "Send Down Alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        200
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Discord Webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "daily",
+      "name": "Daily 9AM Summary",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst checks = sd.checks || 0;\nconst failures = sd.failures || 0;\nconst avg = checks ? Math.round((sd.totalMs || 0) / checks) : 0;\nconst uptime = checks ? (((checks - failures) / checks) * 100).toFixed(2) : 'n/a';\nconst text = `📊 **Daily uptime summary**\\nChecks: ${checks}\\nFailures: ${failures}\\nUptime: ${uptime}%\\nAvg response: ${avg} ms\\nSlowest: ${sd.maxMs || 0} ms`;\nsd.checks = 0; sd.failures = 0; sd.totalMs = 0; sd.maxMs = 0;\nreturn [{ json: { text } }];"
+      },
+      "id": "build-summary",
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "={{ $json.text }}",
+        "options": {}
+      },
+      "id": "send-daily-summary",
+      "name": "Send Daily Summary",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        420,
+        400
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Discord Webhook"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Stamp Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stamp Start": {
+      "main": [
+        [
+          {
+            "node": "Ping App",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping App": {
+      "main": [
+        [
+          {
+            "node": "Record Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Result": {
+      "main": [
+        [
+          {
+            "node": "Is Status 200?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Status 200?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Send Down Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily 9AM Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary": {
+      "main": [
+        [
+          {
+            "node": "Send Daily Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
