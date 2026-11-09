@@ -26,6 +26,7 @@ The 300 threshold was chosen because front-page top stories usually sit in the 1
 No secrets in the JSON. The Discord nodes reference a credential named "Discord Webhook" from the n8n Credentials store. After importing, open any Discord node, pick or create that credential (paste your webhook URL there), and relink the other Discord nodes to it.
 
 ## How to run
-1. Import `Task2_Workflow_[YourName].json` in n8n.
-2. Create the Discord Webhook credential and attach it to the 4 Discord nodes.
-3. Click "Execute workflow" and check Discord.
+1. Import `Task2_Workflow_[rename
+   ].json` in n8n.
+3. Create the Discord Webhook credential and attach it to the 4 Discord nodes.
+4. Click "Execute workflow" and check Discord.
