@@ -1,32 +1,45 @@
-# Task 2 README: Morning Brief (HackerNews Digest)
+# Automation & QA Developer Assessment
 
-## What it does
-Every hour (Schedule trigger, for testing) the workflow fetches the HackerNews front page, keeps the top 5 stories by points, enriches each with its discussion details, and posts a digest to a Discord channel.
+Submission by **<Ansh ojha>**.
 
-## APIs used and why
-- **HN Algolia Search API** (`hn.algolia.com/api/v1/search?tags=front_page`): free, no API key, stable JSON, fast. Good for a reliable demo.
-- **HN Algolia Items API** (`/api/v1/items/{id}`): second endpoint of the same API. Used to enrich each story with its top-level reply count.
+- Loom walkthrough: <add-your-loom-link>
 
-## Transformation (Code node "Keep Top 5")
-Filters out hits without a title, sorts by points descending, keeps 5, and reshapes each item to `{objectID, title, url, points, comments, author}`. Stories with no external URL fall back to the HN discussion link.
+## Contents
 
-## Conditional branch
-IF node "Any Story Over 300 Points?" checks the highest score in the digest.
-- **True**: sends the digest with a "Hot morning brief" header.
-- **False**: sends a normal "Morning brief".
+| File | What it is |
+|---|---|
+| `Task1_QA_Report_<YourName>.docx` | QA report on the RealWorld (Conduit) demo app: bug table and root-cause analysis |
+| `Task2_Workflow_<YourName>.json` | n8n workflow: HackerNews API digest to Discord |
+| `Bonus_UptimeMonitor_<YourName>.json` | n8n uptime monitor for the app tested in Task 1 |
+| `screenshots/` | Workflow canvas and successful execution screenshots |
 
-The 300 threshold was chosen because front-page top stories usually sit in the 100-500 range, so 300 marks an unusually busy day. It is easy to change in the IF node.
+## Task 1: QA report
+App tested: https://demo.realworld.io. The report lists the issues found in the bug template format (title, steps, expected vs actual, severity, suspected cause) and a root-cause analysis of one issue: the auth token stored in localStorage, why it is risky, and how to fix it (HttpOnly cookie, CSRF protection, short-lived tokens, CSP).
 
-## Error handling (nothing fails silently)
-1. **Fetch Front Page**: retries 3 times (2s apart); if it still fails, the error output goes to "Alert Fetch Failed" (a Discord message).
-2. **Enrich With Item Details**: set to "Continue (regular output)", so one failed item does not stop the run. The digest shows "enrichment unavailable" for that story.
-3. **Workflow Error Trigger** (separate branch): any other crash posts the workflow name, failing node and message to Discord. Note: in n8n this trigger fires when this workflow is set as its own error workflow (Workflow Settings > Error workflow).
+## Task 2: Morning brief workflow
+**Flow:** Schedule (hourly) → HN Algolia front page → Code node keeps top 5 → second endpoint enriches each story → digest built → IF (any story over 300 points?) → Discord.
 
-## Credentials
-No secrets in the JSON. The Discord nodes reference a credential named "Discord Webhook" from the n8n Credentials store. After importing, open any Discord node, pick or create that credential (paste your webhook URL there), and relink the other Discord nodes to it.
+- **APIs:** HN Algolia Search and Items endpoints. Free, no API key, stable JSON.
+- **Transformation:** filter out items without titles, sort by points, keep 5, reshape fields. Stories without an external URL link to the HN discussion.
+- **IF threshold (300 points):** top front-page stories usually score 100 to 500, so 300 marks a busy day. Hot days get a different header.
+- **Error handling:**
+  - The main fetch retries 3 times, then routes to a Discord alert.
+  - The enrichment call continues on error, so one failed item does not stop the run.
+  - A separate Error Trigger branch reports any other crash (set this workflow as its own error workflow in Workflow Settings).
+- **Credentials:** no secrets in the JSON. Nodes use an n8n credential named "Discord Webhook".
+
+## Bonus: uptime monitor
+- Pings the app every 5 minutes with 3 retries and a 10 second timeout.
+- Records response time and status in workflow static data.
+- Any status other than 200 sends a Discord alert.
+- A daily 9 AM summary reports total checks, failures, uptime percentage, and average and slowest response time, then resets the counters.
 
 ## How to run
-1. Import `Task2_Workflow_[rename
-   ].json` in n8n.
-3. Create the Discord Webhook credential and attach it to the 4 Discord nodes.
-4. Click "Execute workflow" and check Discord.
+1. In n8n, choose Import from File and select a workflow JSON.
+2. Create a **Discord Webhook** credential (paste your webhook URL) and attach it to every Discord node.
+3. Click Execute workflow and check your Discord channel.
+4. For the monitor, activate the workflow so the schedules run.
+
+## Notes and limitations
+- Static data in the monitor only persists while the workflow is active (not on manual test runs).
+- The uptime monitor targets the public demo; replace the URL in the "Ping App" node to monitor another app.
